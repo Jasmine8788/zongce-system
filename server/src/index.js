@@ -46,6 +46,14 @@ app.use((err, req, res, next) => {
   res.status(err.status || 500).json({ error: err.message || '服务器内部错误' });
 });
 
+// 可选：托管前端构建产物（存在 web/dist 时启用，单端口/单隧道即可暴露整个系统）
+const WEB_DIST = process.env.WEB_DIST || path.join(__dirname, '..', '..', 'web', 'dist');
+if (fs.existsSync(path.join(WEB_DIST, 'index.html'))) {
+  app.use(express.static(WEB_DIST));
+  app.get(/^(?!\/api|\/uploads).*/, (req, res) => res.sendFile(path.join(WEB_DIST, 'index.html')));
+  console.log(`[server] 已启用前端静态托管: ${WEB_DIST}`);
+}
+
 const PORT = Number(process.env.PORT) || 8080;
 // 监听 0.0.0.0：保证容器/公网环境可被外部访问
 app.listen(PORT, '0.0.0.0', () => {

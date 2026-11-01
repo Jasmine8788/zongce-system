@@ -145,7 +145,15 @@ docker compose up -d --build
 
 ### 方案 C：临时演示（内网穿透，仅限临时使用）
 
-后端在本地启动后，用 `cloudflared tunnel --url http://localhost:8080`（或 ngrok/frp）得到临时公网地址，前端构建时把 `VITE_API_BASE_URL` 指向它即可。**正式方案请使用 A 或 B。**
+后端已内置前端静态托管：当 `web/dist` 存在时，Express 会同时托管前端页面（单端口 8080 即可访问整个系统）。因此一条隧道即可演示：
+
+```bash
+cd web && npm run build        # 生成 web/dist（VITE_API_BASE_URL 留空，走同域）
+cd ../server && npm run start  # 8080 端口同时提供页面与 /api
+cloudflared tunnel --url http://localhost:8080
+```
+
+命令输出中的 `https://xxx.trycloudflare.com` 即为临时公网地址，手机 4G 与电脑宽带均可访问（URL 每次启动会变化，**正式方案请使用 A 或 B**）。也可分别给前后端各起一条隧道（前端构建时将 `VITE_API_BASE_URL` 指向后端隧道地址）。
 
 ## 五、常见问题（FAQ）
 
