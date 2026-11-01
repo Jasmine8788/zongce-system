@@ -1,0 +1,32 @@
+# Render 一键部署蓝图：https://dashboard.render.com → New + → Blueprint → 选择本仓库
+# 注意：Render 免费（free）套餐不支持磁盘（disk）。
+#   - 需要数据持久化（SQLite 不丢）：把 plan 改为 starter（付费），保留下方 disk 配置；
+#   - 纯演示可接受重启后数据重置：删除下方 disk 段，plan 保持 free。
+services:
+  - type: web
+    name: zongce-api
+    runtime: node
+    rootDir: server
+    plan: free
+    buildCommand: npm install
+    startCommand: node src/index.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true
+      # 前端部署到 Vercel 后，把这里改成你的前端域名并重启服务
+      - key: CORS_ORIGINS
+        value: ""
+      - key: AI_BASE_URL
+        value: https://api.openai.com/v1
+      # 有 OpenAI 兼容 Key 就填；留空自动使用规则兜底分类
+      - key: AI_API_KEY
+        value: ""
+      - key: AI_MODEL
+        value: gpt-4o-mini
+    # 付费套餐取消注释以获得 SQLite 与上传文件持久化：
+    # disk:
+    #   name: zongce-data
+    #   mountPath: /app/data
+    #   sizeGB: 1
+    # disks 只能挂一个路径时，上传文件可改为放 DATA_DIR 下（设置 UPLOAD_DIR=/app/data/uploads）

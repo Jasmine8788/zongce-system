@@ -1,0 +1,35 @@
+# 一键部署：后端 + 前端（适合有云服务器的情况）
+# 使用：修改下方 VITE_API_BASE_URL 与 CORS_ORIGINS 为你的公网域名后，执行 docker compose up -d --build
+services:
+  server:
+    build: ./server
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      JWT_SECRET: "change-me-to-a-long-random-string"
+      # 允许访问后端的前端来源（逗号分隔）；公网部署务必填写，例如 http://your-server-ip
+      CORS_ORIGINS: "${CORS_ORIGINS:-http://localhost}"
+      # AI 初始配置（也可部署后在管理员端修改）
+      AI_BASE_URL: "${AI_BASE_URL:-https://api.openai.com/v1}"
+      AI_API_KEY: "${AI_API_KEY:-}"
+      AI_MODEL: "${AI_MODEL:-gpt-4o-mini}"
+    volumes:
+      - server-data:/app/data        # SQLite 数据库持久化
+      - server-uploads:/app/uploads  # 上传文件持久化
+
+  web:
+    build:
+      context: ./web
+      args:
+        # 前端请求的后端公网地址：必须与浏览器实际访问后端时使用的地址一致
+        VITE_API_BASE_URL: "${VITE_API_BASE_URL:-http://localhost:8080}"
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - server
+
+volumes:
+  server-data:
+  server-uploads:
