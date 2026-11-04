@@ -158,13 +158,31 @@ cloudflared tunnel --url http://localhost:8080
 
 命令输出中的 `https://xxx.trycloudflare.com` 即为临时公网地址，手机 4G 与电脑宽带均可访问（URL 每次启动会变化，**正式方案请使用 A 或 B**）。也可分别给前后端各起一条隧道（前端构建时将 `VITE_API_BASE_URL` 指向后端隧道地址）。
 
+### 方案 D：单容器一体化镜像（Railway / Fly.io / 任意容器平台）
+
+仓库根目录的 `Dockerfile` 会先构建前端，再把产物交给后端托管，最终**一个容器、一个端口同时提供页面与 `/api`**，无需 CORS，最省事：
+
+```bash
+docker build -t zongce .
+docker run -d -p 8080:8080 \
+  -e JWT_SECRET=$(openssl rand -hex 32) \
+  -e DATA_DIR=/app/data \
+  -e UPLOAD_DIR=/app/data/uploads \
+  -v zongce-data:/app/data \
+  --name zongce zongce
+```
+
+- 平台部署（如 Railway）：新建项目 → 关联本仓库 → 平台会自动识别根目录 `Dockerfile` 构建；随后在服务里把 Volume 挂到 `/app/data`，并设置 `UPLOAD_DIR=/app/data/uploads`，SQLite 与上传文件即可持久化
+- 注意：部分平台不允许 Dockerfile 中出现 `VOLUME` 指令（Railway 会直接判构建失败），本仓库已移除，改用平台侧挂卷
+- `PORT` 由平台注入时会自动生效（默认 8080）
+
 ## 五、常见问题（FAQ）
 
 1. **上传后分类不准确？** 置信度低于阈值的条目会进入“待确认”，在“我的材料”中编辑修正即可；修正会写入纠错日志供后续优化。配置视觉模型 Key 可显著提升图片识别效果。
 2. **Excel 打开 CSV 乱码？** 导出文件已带 UTF-8 BOM，正常 Excel 双击打开无乱码；若用 WPS 旧版请在打开时选择 UTF-8 编码。
 3. **忘记密码？** 找管理员在“账号管理”中重置；新账号与重置后的账号首次登录会被强制要求修改密码。
 4. **公网部署后提示 CORS 错误？** 检查后端 `CORS_ORIGINS` 是否与浏览器地址栏中的前端域名完全一致（含 `https://`，不带尾部斜杠）。
-5. **Render/Railway 重启后数据丢失？** 未挂载持久卷导致，请为 `/app/data`、`/app/uploads` 挂载磁盘（见方案 A 第 1 步）。
+5. **Render/Railway 重启后数据丢失？** 未挂载持久卷导致。把 Volume 挂到 `/app/data`，并设置 `UPLOAD_DIR=/app/data/uploads`（见方案 D），数据库与上传文件即可长期保留。
 6. **想换 PostgreSQL？** 数据访问集中在 `server/src/db.js`，用 `pg` 替换 better-sqlite3 并保持导出接口（`db.prepare` 调用处）一致即可。
 7. **上传限制？** 默认单文件 10MB、一次最多 9 个，支持 jpg/png/pdf；可在 `server/src/routes/materials.js` 的 multer 配置中调整。
 8. **如何彻底重置演示数据？** 停止服务后删除 `server/data/zongce.db` 与 `server/uploads/*`，重启即重新初始化种子数据。
