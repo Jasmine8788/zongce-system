@@ -20,6 +20,6 @@ ENV NODE_ENV=production
 ENV PORT=8080
 ENV WEB_DIST=/app/web-dist
 
-VOLUME ["/app/data", "/app/uploads"]
+# 数据目录：Railway 通过挂载 Volume 到 /app/data 与 /app/uploads 实现持久化
 EXPOSE 8080
 CMD ["node", "src/index.js"]
