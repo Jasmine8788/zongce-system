@@ -1,34 +1,48 @@
-# 一键部署：后端 + 前端（适合有云服务器的情况）
-# 使用：修改下方 VITE_API_BASE_URL 与 CORS_ORIGINS 为你的公网域名后，执行 docker compose up -d --build
+# 一键部署：前端(nginx) + 后端(Express)，单域名对外，无需配置 CORS
+# 使用：
+#   1) cp .env.example .env 并按需修改（JWT_SECRET 必改）
+#   2) docker compose up -d --build
+#   3) 浏览器访问 http://服务器IP
+# 说明：前端与 /api 走同一域名（80 端口），nginx 把 /api、/uploads 转发给 server，
+#      因此不要设置 VITE_API_BASE_URL，保持同源可彻底避免跨域问题。
 services:
   server:
     build: ./server
     restart: always
-    ports:
-      - "8080:8080"
+    # 仅容器网络内可访问；如需本地调试可临时加 "127.0.0.1:8080:8080"
+    expose:
+      - "8080"
     environment:
-      JWT_SECRET: "change-me-to-a-long-random-string"
-      # 允许访问后端的前端来源（逗号分隔）；公网部署务必填写，例如 http://your-server-ip
-      CORS_ORIGINS: "${CORS_ORIGINS:-http://localhost}"
-      # AI 初始配置（也可部署后在管理员端修改）
+      NODE_ENV: production
+      JWT_SECRET: "${JWT_SECRET:?请先在 .env 中设置 JWT_SECRET}"
+      # 同源部署下无需跨域白名单；如另行分离部署前端，再填写前端域名（逗号分隔）
+      CORS_ORIGINS: "${CORS_ORIGINS:-}"
       AI_BASE_URL: "${AI_BASE_URL:-https://api.openai.com/v1}"
       AI_API_KEY: "${AI_API_KEY:-}"
       AI_MODEL: "${AI_MODEL:-gpt-4o-mini}"
+      AI_CONFIDENCE_THRESHOLD: "${AI_CONFIDENCE_THRESHOLD:-0.7}"
     volumes:
       - server-data:/app/data        # SQLite 数据库持久化
-      - server-uploads:/app/uploads  # 上传文件持久化
+      - server-uploads:/app/uploads  # 上传材料持久化
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
   web:
     build:
       context: ./web
       args:
-        # 前端请求的后端公网地址：必须与浏览器实际访问后端时使用的地址一致
-        VITE_API_BASE_URL: "${VITE_API_BASE_URL:-http://localhost:8080}"
+        # 留空 = 与页面同源（推荐）。若前后端分开部署，填后端公网地址，如 https://api.example.com
+        VITE_API_BASE_URL: "${VITE_API_BASE_URL:-}"
     restart: always
     ports:
-      - "80:80"
+      - "${WEB_PORT:-80}:80"
     depends_on:
-      - server
+      server:
+        condition: service_healthy
 
 volumes:
   server-data:

@@ -125,23 +125,26 @@ npm run dev                 # http://localhost:5173
    - 部署后得到前端地址，如 `https://zongce.vercel.app`。
 3. 回到后端把 `CORS_ORIGINS` 设置为该前端地址并重启。
 
-### 方案 B：云服务器 + Docker Compose
+### 方案 B：云服务器 + Docker Compose（推荐，单域名）
 
 ```bash
 git clone <你的仓库> && cd zongce-system
 
-# 配置环境：前端访问后端的地址（示例为服务器公网 IP；有域名请用 https 域名）
-export VITE_API_BASE_URL="http://服务器公网IP:8080"
-export CORS_ORIGINS="http://服务器公网IP"
-# 可选：注入 AI Key
-export AI_API_KEY="sk-..."
+cp .env.example .env
+# 编辑 .env：把 JWT_SECRET 改成随机长串（openssl rand -hex 32 可生成）
+# 需要 AI 分类就把 AI_API_KEY 填上；不填则走关键词规则兜底
 
 docker compose up -d --build
+docker compose ps          # 两个服务均为 running/healthy 即成功
 ```
 
-- 前端：`http://服务器公网IP`（nginx，80 端口）
-- 后端：`http://服务器公网IP:8080`（SQLite 与上传文件持久化在 docker volume）
-- 云服务器安全组需放行 80 与 8080 端口；生产建议为后端套一层 Nginx + HTTPS 域名。
+- 访问：`http://服务器公网IP`（只需放行 **80** 端口，无需暴露 8080）
+- 架构：nginx 托管前端，并把 `/api`、`/uploads` 反向代理到后端容器，**同源访问所以不存在跨域问题**，因此 **`VITE_API_BASE_URL` 留空即可**
+- 数据持久化：SQLite 与上传文件分别存在 `server-data`、`server-uploads` 两个 docker volume，`docker compose down` 不会丢数据（`down -v` 才会清除）
+- 常用运维：`docker compose logs -f server` 看日志；改 `.env` 后 `docker compose up -d` 生效
+- 换域名/上 HTTPS：把域名解析到该服务器，再在宿主机用 Nginx + certbot 反代到 `127.0.0.1:80`，或使用云厂商负载均衡证书
+
+> 注意：`client_max_body_size 15m` 已在 nginx 配置中放开，否则手机拍照上传会被 413 拦截。
 
 ### 方案 C：临时演示（内网穿透，仅限临时使用）
 
