@@ -1,0 +1,10 @@
+# 根目录构建上下文排除项（Railway/容器平台按仓库根目录构建时生效）
+node_modules
+**/node_modules
+.git
+**/dist
+server/data
+server/uploads
+.env
+*.log
+.tools
